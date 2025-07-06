@@ -1,6 +1,8 @@
 from django.urls import path
-from .views import ClientListView, ClientCreateView, ClientUpdateView, ClientDeleteView
-from .views import ExportClientsView
+from .views import (
+    ClientListView, ClientCreateView, ClientUpdateView, ClientDeleteView,
+    ExportClientsView  # Импортируем из views
+)
 
 app_name = 'clients'
 

@@ -83,3 +83,39 @@
     </div>
 </div>
 {% endblock %}
+
+<script>
+// Автоматическая проверка дубликата телефона
+document.getElementById('id_phone').addEventListener('blur', function() {
+    const phone = this.value.trim();
+    if (phone.length >= 10) {
+        fetch(`/clients/?search=${phone}`)
+            .then(response => response.text())
+            .then(html => {
+                if (html.includes(phone) && !window.location.href.includes('edit')) {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-warning alert-dismissible fade show mt-2';
+                    alertDiv.innerHTML = `
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Клиент с таким телефоном может уже существовать!
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    this.parentElement.appendChild(alertDiv);
+                }
+            });
+    }
+});
+
+// Автоформатирование телефона
+document.getElementById('id_phone').addEventListener('input', function() {
+    // Удаляем все нецифровые символы
+    let value = this.value.replace(/\D/g, '');
+
+    // Ограничиваем длину
+    if (value.length > 10) {
+        value = value.substr(0, 10);
+    }
+
+    this.value = value;
+});
+</script>

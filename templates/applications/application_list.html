@@ -6,6 +6,11 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Заявки</h1>
     <div>
+        {% if user.is_operator %}
+        <a href="{% url 'applications:operator_workspace' %}" class="btn btn-info">
+            <i class="bi bi-grid-3x3-gap"></i> Рабочее место
+        </a>
+        {% endif %}
         {% if user.is_admin %}
         <a href="{% url 'applications:export' %}" class="btn btn-success">
             <i class="bi bi-file-earmark-excel"></i> Экспорт в Excel
@@ -17,6 +22,7 @@
     </div>
 </div>
 
+<!-- Фильтры -->
 <div class="card mb-4">
     <div class="card-body">
         <form method="get" class="row g-3">
@@ -34,6 +40,7 @@
             <div class="col-md-4">
                 <select name="operator" class="form-select">
                     <option value="">Все операторы</option>
+                    <option value="none" {% if request.GET.operator == 'none' %}selected{% endif %}>Не назначен</option>
                     {% for operator in operators %}
                         <option value="{{ operator.pk }}" {% if request.GET.operator == operator.pk|stringformat:"i" %}selected{% endif %}>
                             {{ operator.get_full_name|default:operator.username }}
@@ -51,11 +58,50 @@
     </div>
 </div>
 
+<!-- Массовые операции для админа -->
+{% if user.is_admin %}
+<form method="post" action="{% url 'applications:mass_assign' %}" id="massAssignForm">
+    {% csrf_token %}
+    <div class="card mb-3" id="massActions" style="display: none;">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-3">
+                    <span>Выбрано заявок: <strong id="selectedCount">0</strong></span>
+                </div>
+                <div class="col-md-5">
+                    <select name="operator" class="form-select" required>
+                        <option value="">Выберите оператора для назначения</option>
+                        {% for operator in operators %}
+                            <option value="{{ operator.pk }}">
+                                {{ operator.get_full_name|default:operator.username }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-person-plus"></i> Назначить выбранные
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="clearSelection()">
+                        <i class="bi bi-x"></i> Отменить
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Список заявок -->
 <div class="card">
     <div class="card-body">
         <table class="table table-hover">
             <thead>
                 <tr>
+                    {% if user.is_admin %}
+                    <th width="30">
+                        <input type="checkbox" class="form-check-input" id="selectAll">
+                    </th>
+                    {% endif %}
                     <th>ID</th>
                     <th>Клиент</th>
                     <th>Телефон</th>
@@ -68,6 +114,12 @@
             <tbody>
                 {% for app in applications %}
                 <tr {% if app.is_overdue %}class="table-warning"{% endif %}>
+                    {% if user.is_admin %}
+                    <td>
+                        <input type="checkbox" class="form-check-input app-checkbox"
+                               name="applications" value="{{ app.pk }}">
+                    </td>
+                    {% endif %}
                     <td>#{{ app.pk }}</td>
                     <td>{{ app.client.name|default:app.client.phone }}</td>
                     <td>
@@ -88,9 +140,22 @@
                         {% endif %}
                     </td>
                     {% if user.is_admin %}
-                    <td>{{ app.operator.get_full_name|default:app.operator.username|default:"-" }}</td>
+                    <td>
+                        {% if app.operator %}
+                            {{ app.operator.get_full_name|default:app.operator.username }}
+                        {% else %}
+                            <span class="text-muted">Не назначен</span>
+                        {% endif %}
+                    </td>
                     {% endif %}
-                    <td>{{ app.created_at|date:"d.m.Y H:i" }}</td>
+                    <td>
+                        {{ app.created_at|date:"d.m.Y H:i" }}
+                        {% if app.is_overdue %}
+                            <br><small class="text-danger">
+                                <i class="bi bi-exclamation-triangle"></i> Просрочена
+                            </small>
+                        {% endif %}
+                    </td>
                     <td>
                         {% if user.is_admin %}
                             <a href="{% url 'applications:detail' app.pk %}" class="btn btn-sm btn-outline-info" title="Просмотр">
@@ -109,7 +174,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="{% if user.is_admin %}7{% else %}6{% endif %}" class="text-center">Заявок не найдено</td>
+                    <td colspan="{% if user.is_admin %}8{% else %}6{% endif %}" class="text-center">Заявок не найдено</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -144,4 +209,36 @@
         {% endif %}
     </div>
 </div>
+
+{% if user.is_admin %}
+</form>
+
+<script>
+// Массовое выделение
+document.getElementById('selectAll').addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('.app-checkbox');
+    checkboxes.forEach(cb => cb.checked = this.checked);
+    updateSelectedCount();
+});
+
+// Обновление счетчика
+function updateSelectedCount() {
+    const checked = document.querySelectorAll('.app-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = checked;
+    document.getElementById('massActions').style.display = checked > 0 ? 'block' : 'none';
+}
+
+// Слушатели для чекбоксов
+document.querySelectorAll('.app-checkbox').forEach(cb => {
+    cb.addEventListener('change', updateSelectedCount);
+});
+
+// Очистка выделения
+function clearSelection() {
+    document.querySelectorAll('.app-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('selectAll').checked = false;
+    updateSelectedCount();
+}
+</script>
+{% endif %}
 {% endblock %}

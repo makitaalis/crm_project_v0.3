@@ -5,6 +5,7 @@
 {% block content %}
 <h1 class="mb-4">Мои заявки</h1>
 
+<!-- Статистика -->
 <div class="row mb-4">
     <div class="col-md-3">
         <div class="card text-center">
@@ -40,6 +41,14 @@
     </div>
 </div>
 
+<!-- Заявки на перезвон с истекшим временем -->
+{% if recall_now %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <i class="bi bi-exclamation-triangle"></i> У вас есть заявки, которые нужно перезвонить прямо сейчас!
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
 <!-- Список активных заявок -->
 <div class="card">
     <div class="card-header">
@@ -47,13 +56,27 @@
     </div>
     <div class="card-body">
         {% for app in active_applications %}
-        <div class="border rounded p-3 mb-3 {% if app.recall_date and app.recall_date <= now %}bg-warning bg-opacity-10{% endif %}">
-            <div class="row">
-                <div class="col-md-8">
-                    <h6>Заявка #{{ app.pk }} - {{ app.client.name|default:"Без имени" }}</h6>
+        <div class="border rounded p-3 mb-3 {% if app.recall_date and app.recall_date <= now %}bg-warning bg-opacity-10{% elif app.is_overdue %}bg-danger bg-opacity-10{% endif %}">
+            <div class="row align-items-center">
+                <div class="col-md-7">
+                    <h6 class="mb-1">
+                        Заявка #{{ app.pk }} - {{ app.client.name|default:"Без имени" }}
+                        {% if app.recall_date and app.recall_date <= now %}
+                            <span class="badge bg-warning">
+                                <i class="bi bi-bell"></i> Время перезвона!
+                            </span>
+                        {% elif app.is_overdue %}
+                            <span class="badge bg-danger">
+                                <i class="bi bi-exclamation-triangle"></i> Просрочена
+                            </span>
+                        {% endif %}
+                    </h6>
                     <p class="mb-1">
                         <i class="bi bi-telephone"></i>
                         <a href="sip:{{ app.client.phone }}" class="text-decoration-none">{{ app.client.phone }}</a>
+                        {% if app.client.email %}
+                            | <i class="bi bi-envelope"></i> {{ app.client.email }}
+                        {% endif %}
                     </p>
                     <p class="mb-1">
                         <span class="badge badge-{{ app.status.code }}">{{ app.status.name }}</span>
@@ -62,18 +85,103 @@
                                 <i class="bi bi-clock"></i> Перезвонить {{ app.recall_date|date:"d.m H:i" }}
                             </span>
                         {% endif %}
+                        {% for category in app.categories.all %}
+                            <span class="badge" style="background-color: {{ category.color }}">{{ category.name }}</span>
+                        {% endfor %}
                     </p>
+                    {% if app.notes %}
+                    <p class="mb-0 text-muted">
+                        <small><i class="bi bi-chat-left-text"></i> {{ app.notes|truncatewords:20 }}</small>
+                    </p>
+                    {% endif %}
                 </div>
-                <div class="col-md-4 text-end">
-                    <a href="{% url 'applications:update' app.pk %}" class="btn btn-primary">
-                        <i class="bi bi-telephone"></i> Обработать
-                    </a>
+                <div class="col-md-5 text-end">
+                    <!-- Быстрые действия -->
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-success"
+                                data-bs-toggle="modal"
+                                data-bs-target="#quickStatusModal{{ app.pk }}">
+                            <i class="bi bi-check-circle"></i> Быстрый статус
+                        </button>
+                        <a href="sip:{{ app.client.phone }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-telephone"></i> Позвонить
+                        </a>
+                        <a href="{% url 'applications:update' app.pk %}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-pencil"></i> Обработать
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- Модальное окно быстрой смены статуса -->
+        <div class="modal fade" id="quickStatusModal{{ app.pk }}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form method="post" action="{% url 'applications:quick_status' app.pk %}">
+                        {% csrf_token %}
+                        <div class="modal-header">
+                            <h5 class="modal-title">Быстрая смена статуса - Заявка #{{ app.pk }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Новый статус</label>
+                                <select name="status" class="form-select" required>
+                                    {% for status in statuses %}
+                                        <option value="{{ status.code }}"
+                                                {% if status.code == app.status.code %}selected{% endif %}>
+                                            {{ status.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="mb-3" id="recallTime{{ app.pk }}" style="display: none;">
+                                <label class="form-label">Перезвонить через:</label>
+                                <select name="recall_time" class="form-select">
+                                    <option value="1">1 час</option>
+                                    <option value="2">2 часа</option>
+                                    <option value="4">4 часа</option>
+                                    <option value="24">Завтра</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Комментарий</label>
+                                <textarea name="comment" class="form-control" rows="3"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                            <button type="submit" class="btn btn-primary">Сохранить</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        // Показ/скрытие времени перезвона
+        document.querySelector('#quickStatusModal{{ app.pk }} select[name="status"]').addEventListener('change', function() {
+            const recallDiv = document.getElementById('recallTime{{ app.pk }}');
+            recallDiv.style.display = this.value === 'recall' ? 'block' : 'none';
+        });
+        </script>
         {% empty %}
-        <p class="text-muted text-center">Нет активных заявок</p>
+        <div class="text-center py-5">
+            <i class="bi bi-inbox display-1 text-muted"></i>
+            <p class="text-muted mt-3">Нет активных заявок</p>
+            <p class="text-muted">Новые заявки появятся здесь автоматически</p>
+        </div>
         {% endfor %}
     </div>
 </div>
+
+<!-- Автообновление страницы каждые 30 секунд -->
+<script>
+setTimeout(function(){
+    location.reload();
+}, 30000);
+</script>
 {% endblock %}
