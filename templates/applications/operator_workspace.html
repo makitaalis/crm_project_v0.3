@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Рабочее место оператора{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Мои заявки</h1>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Новые</h5>
+                <h2 class="text-primary">{{ new_count }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">В работе</h5>
+                <h2 class="text-warning">{{ in_work_count }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">На перезвон</h5>
+                <h2 class="text-info">{{ recall_count }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Закрыто сегодня</h5>
+                <h2 class="text-success">{{ closed_today }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Список активных заявок -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Активные заявки</h5>
+    </div>
+    <div class="card-body">
+        {% for app in active_applications %}
+        <div class="border rounded p-3 mb-3 {% if app.recall_date and app.recall_date <= now %}bg-warning bg-opacity-10{% endif %}">
+            <div class="row">
+                <div class="col-md-8">
+                    <h6>Заявка #{{ app.pk }} - {{ app.client.name|default:"Без имени" }}</h6>
+                    <p class="mb-1">
+                        <i class="bi bi-telephone"></i>
+                        <a href="sip:{{ app.client.phone }}" class="text-decoration-none">{{ app.client.phone }}</a>
+                    </p>
+                    <p class="mb-1">
+                        <span class="badge badge-{{ app.status.code }}">{{ app.status.name }}</span>
+                        {% if app.recall_date %}
+                            <span class="badge bg-info">
+                                <i class="bi bi-clock"></i> Перезвонить {{ app.recall_date|date:"d.m H:i" }}
+                            </span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="{% url 'applications:update' app.pk %}" class="btn btn-primary">
+                        <i class="bi bi-telephone"></i> Обработать
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <p class="text-muted text-center">Нет активных заявок</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

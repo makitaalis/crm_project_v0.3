@@ -52,6 +52,20 @@
         .badge-success { background-color: #238636; }
         .badge-fail { background-color: #da3633; }
         .badge-recall { background-color: #a371f7; }
+        .dropdown-menu {
+            background-color: #161b22;
+            border-color: #30363d;
+        }
+        .dropdown-item {
+            color: #c9d1d9;
+        }
+        .dropdown-item:hover {
+            background-color: #30363d;
+            color: #f0f6fc;
+        }
+        .dropdown-divider {
+            border-color: #30363d;
+        }
     </style>
 
     {% block extra_css %}{% endblock %}
@@ -73,18 +87,54 @@
                                 <i class="bi bi-speedometer2"></i> Дашборд
                             </a>
                         </li>
+
                         {% if user.is_admin %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'clients:list' %}">
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                                     <i class="bi bi-people"></i> Клиенты
                                 </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{% url 'clients:list' %}">
+                                        <i class="bi bi-list"></i> Все клиенты
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{% url 'clients:create' %}">
+                                        <i class="bi bi-person-plus"></i> Добавить клиента
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{% url 'clients:export' %}">
+                                        <i class="bi bi-file-earmark-excel"></i> Экспорт в Excel
+                                    </a></li>
+                                </ul>
                             </li>
                         {% endif %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'applications:list' %}">
+
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                                 <i class="bi bi-file-text"></i> Заявки
                             </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{% url 'applications:list' %}">
+                                    <i class="bi bi-list"></i> Все заявки
+                                </a></li>
+                                {% if user.is_admin %}
+                                    <li><a class="dropdown-item" href="{% url 'applications:create' %}">
+                                        <i class="bi bi-plus-lg"></i> Создать заявку
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{% url 'applications:status_list' %}">
+                                        <i class="bi bi-tags"></i> Статусы
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{% url 'applications:category_list' %}">
+                                        <i class="bi bi-bookmark"></i> Категории
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{% url 'applications:export' %}">
+                                        <i class="bi bi-file-earmark-excel"></i> Экспорт в Excel
+                                    </a></li>
+                                {% endif %}
+                            </ul>
                         </li>
+
                         {% if user.is_admin %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'accounts:user_list' %}">
@@ -96,19 +146,17 @@
                 </ul>
                 {% if user.is_authenticated %}
                     <ul class="navbar-nav">
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                                <i class="bi bi-person-circle"></i> {{ user.get_full_name|default:user.username }}
+                        <li class="nav-item me-3">
+                            <span class="navbar-text">
+                                <i class="bi bi-person-circle"></i>
+                                {{ user.get_full_name|default:user.username }}
+                                <span class="badge bg-secondary">{{ user.get_role_display }}</span>
+                            </span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'accounts:logout' %}">
+                                <i class="bi bi-box-arrow-right"></i> Выйти
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><h6 class="dropdown-header">{{ user.get_role_display }}</h6></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'accounts:logout' %}">
-                                        <i class="bi bi-box-arrow-right"></i> Выйти
-                                    </a>
-                                </li>
-                            </ul>
                         </li>
                     </ul>
                 {% endif %}

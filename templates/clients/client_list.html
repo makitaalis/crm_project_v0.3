@@ -5,16 +5,23 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Клиенты</h1>
-    <a href="{% url 'clients:create' %}" class="btn btn-primary">
-        <i class="bi bi-person-plus"></i> Добавить клиента
-    </a>
+    <div>
+        <a href="{% url 'clients:export' %}" class="btn btn-success">
+            <i class="bi bi-file-earmark-excel"></i> Экспорт в Excel
+        </a>
+        <a href="{% url 'clients:create' %}" class="btn btn-primary">
+            <i class="bi bi-person-plus"></i> Добавить клиента
+        </a>
+    </div>
 </div>
 
 <div class="card mb-4">
     <div class="card-body">
         <form method="get" class="row g-3">
             <div class="col-md-10">
-                <input type="text" name="search" class="form-control" placeholder="Поиск по ФИО, телефону, email" value="{{ request.GET.search }}">
+                <input type="text" name="search" class="form-control"
+                       placeholder="Поиск по ФИО, телефону, email"
+                       value="{{ request.GET.search }}">
             </div>
             <div class="col-md-2">
                 <button type="submit" class="btn btn-primary w-100">
@@ -27,73 +34,83 @@
 
 <div class="card">
     <div class="card-body">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>ФИО</th>
-                    <th>Телефон</th>
-                    <th>Email</th>
-                    <th>Источник</th>
-                    <th>Создан</th>
-                    <th>Действия</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for client in clients %}
-                <tr>
-                    <td>#{{ client.pk }}</td>
-                    <td>{{ client.name|default:"-" }}</td>
-                    <td>
-                        {% if client.phone %}
-                            <a href="sip:{{ client.phone }}" class="text-decoration-none">
-                                <i class="bi bi-telephone"></i> {{ client.phone }}
-                            </a>
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                    <td>{{ client.email|default:"-" }}</td>
-                    <td>{{ client.source|default:"-" }}</td>
-                    <td>{{ client.created_at|date:"d.m.Y H:i" }}</td>
-                    <td>
-                        <a href="{% url 'clients:edit' client.pk %}" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-pencil"></i>
-                        </a>
-                        <a href="{% url 'clients:delete' client.pk %}" class="btn btn-sm btn-outline-danger">
-                            <i class="bi bi-trash"></i>
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7" class="text-center">Клиенты не найдены</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>ФИО</th>
+                        <th>Телефон</th>
+                        <th>Email</th>
+                        <th>Источник</th>
+                        <th>Заявок</th>
+                        <th>Создан</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for client in clients %}
+                    <tr>
+                        <td>#{{ client.pk }}</td>
+                        <td>{{ client.name|default:"-" }}</td>
+                        <td>
+                            {% if client.phone %}
+                                <a href="sip:{{ client.phone }}" class="text-decoration-none">
+                                    <i class="bi bi-telephone"></i> {{ client.phone }}
+                                </a>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ client.email|default:"-" }}</td>
+                        <td>{{ client.source|default:"-" }}</td>
+                        <td>
+                            <span class="badge bg-secondary">{{ client.applications.count }}</span>
+                        </td>
+                        <td>{{ client.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'clients:edit' client.pk %}"
+                                   class="btn btn-sm btn-outline-primary" title="Редактировать">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'clients:delete' client.pk %}"
+                                   class="btn btn-sm btn-outline-danger" title="Удалить">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center">Клиенты не найдены</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
         {% if is_paginated %}
         <nav>
-            <ul class="pagination">
+            <ul class="pagination justify-content-center">
                 {% if page_obj.has_previous %}
                     <li class="page-item">
                         <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
-                            <i class="bi bi-chevron-left"></i>
+                            <i class="bi bi-chevron-left"></i> Предыдущая
                         </a>
                     </li>
                 {% endif %}
-                
+
                 <li class="page-item active">
                     <span class="page-link">
                         Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
                     </span>
                 </li>
-                
+
                 {% if page_obj.has_next %}
                     <li class="page-item">
                         <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
-                            <i class="bi bi-chevron-right"></i>
+                            Следующая <i class="bi bi-chevron-right"></i>
                         </a>
                     </li>
                 {% endif %}

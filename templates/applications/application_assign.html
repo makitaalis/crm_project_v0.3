@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Назначить оператора{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Назначить оператора для заявки #{{ object.pk }}</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Информация о заявке</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-4">Клиент:</dt>
+                    <dd class="col-sm-8">{{ object.client }}</dd>
+
+                    <dt class="col-sm-4">Телефон:</dt>
+                    <dd class="col-sm-8">{{ object.client.phone|default:"-" }}</dd>
+
+                    <dt class="col-sm-4">Статус:</dt>
+                    <dd class="col-sm-8">
+                        <span class="badge badge-{{ object.status.code }}">{{ object.status.name }}</span>
+                    </dd>
+
+                    <dt class="col-sm-4">Создана:</dt>
+                    <dd class="col-sm-8">{{ object.created_at|date:"d.m.Y H:i" }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Выберите оператора:</label>
+                        <select name="operator" class="form-select" required>
+                            <option value="">-- Выберите оператора --</option>
+                            {% for op in form.fields.operator.queryset %}
+                                <option value="{{ op.pk }}">{{ op.get_full_name|default:op.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> Назначить
+                    </button>
+                    <a href="{% url 'applications:detail' object.pk %}" class="btn btn-secondary">
+                        <i class="bi bi-x-lg"></i> Отмена
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

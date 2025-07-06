@@ -3,7 +3,19 @@
 {% block title %}Заявки{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Заявки</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Заявки</h1>
+    <div>
+        {% if user.is_admin %}
+        <a href="{% url 'applications:export' %}" class="btn btn-success">
+            <i class="bi bi-file-earmark-excel"></i> Экспорт в Excel
+        </a>
+        <a href="{% url 'applications:create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Создать заявку
+        </a>
+        {% endif %}
+    </div>
+</div>
 
 <div class="card mb-4">
     <div class="card-body">
@@ -69,6 +81,11 @@
                     </td>
                     <td>
                         <span class="badge badge-{{ app.status.code }}">{{ app.status.name }}</span>
+                        {% if app.recall_date %}
+                            <br><small class="text-muted">
+                                <i class="bi bi-clock"></i> {{ app.recall_date|date:"d.m H:i" }}
+                            </small>
+                        {% endif %}
                     </td>
                     {% if user.is_admin %}
                     <td>{{ app.operator.get_full_name|default:app.operator.username|default:"-" }}</td>
@@ -76,16 +93,16 @@
                     <td>{{ app.created_at|date:"d.m.Y H:i" }}</td>
                     <td>
                         {% if user.is_admin %}
-                            <a href="{% url 'applications:detail' app.pk %}" class="btn btn-sm btn-outline-info">
+                            <a href="{% url 'applications:detail' app.pk %}" class="btn btn-sm btn-outline-info" title="Просмотр">
                                 <i class="bi bi-eye"></i>
                             </a>
                             {% if not app.operator %}
-                                <a href="{% url 'applications:assign' app.pk %}" class="btn btn-sm btn-outline-primary">
+                                <a href="{% url 'applications:assign' app.pk %}" class="btn btn-sm btn-outline-primary" title="Назначить">
                                     <i class="bi bi-person-plus"></i>
                                 </a>
                             {% endif %}
                         {% endif %}
-                        <a href="{% url 'applications:update' app.pk %}" class="btn btn-sm btn-outline-primary">
+                        <a href="{% url 'applications:update' app.pk %}" class="btn btn-sm btn-outline-primary" title="Редактировать">
                             <i class="bi bi-pencil"></i>
                         </a>
                     </td>
@@ -97,6 +114,34 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        {% if is_paginated %}
+        <nav>
+            <ul class="pagination">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.operator %}&operator={{ request.GET.operator }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+
+                <li class="page-item active">
+                    <span class="page-link">
+                        Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+                    </span>
+                </li>
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.operator %}&operator={{ request.GET.operator }}{% endif %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

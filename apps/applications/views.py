@@ -1,14 +1,18 @@
-from .models import Application, ApplicationHistory, ApplicationComment, Status
-from apps.accounts.models import User
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import ListView, DetailView, UpdateView
+from django.views.generic import ListView, DetailView, UpdateView, CreateView, View
 from django.urls import reverse_lazy
 from django.shortcuts import redirect
 from django.contrib import messages
 from django.db.models import Q
-from .models import Application, ApplicationHistory, ApplicationComment
+from django.http import HttpResponse
+from django.utils import timezone
+from datetime import datetime
+from openpyxl import Workbook
+from .models import Application, ApplicationHistory, ApplicationComment, Status, Category
 from .forms import ApplicationForm, ApplicationOperatorForm
 from apps.accounts.mixins import AdminRequiredMixin
+from apps.accounts.models import User
+from apps.clients.models import Client
 
 
 class ApplicationListView(LoginRequiredMixin, ListView):
@@ -112,3 +116,131 @@ class ApplicationUpdateView(LoginRequiredMixin, UpdateView):
         if self.request.user.is_operator():
             return reverse_lazy('applications:list')
         return reverse_lazy('applications:detail', kwargs={'pk': self.object.pk})
+
+
+class ApplicationCreateView(AdminRequiredMixin, CreateView):
+    model = Application
+    template_name = 'applications/application_form.html'
+    fields = ['client', 'operator', 'status', 'categories', 'notes']
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields['client'].queryset = Client.objects.all()
+        form.fields['operator'].queryset = User.objects.filter(role='operator', is_blocked=False)
+        form.fields['operator'].required = False
+        form.fields['status'].initial = Status.objects.filter(code='new').first()
+        return form
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        response = super().form_valid(form)
+
+        # Логирование
+        ApplicationHistory.objects.create(
+            application=self.object,
+            user=self.request.user,
+            action='Создана заявка'
+        )
+
+        messages.success(self.request, 'Заявка успешно создана')
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy('applications:detail', kwargs={'pk': self.object.pk})
+
+# Управление статусами
+class StatusListView(AdminRequiredMixin, ListView):
+    model = Status
+    template_name = 'applications/status_list.html'
+    context_object_name = 'statuses'
+
+class StatusCreateView(AdminRequiredMixin, CreateView):
+    model = Status
+    fields = ['code', 'name', 'color', 'is_final', 'order']
+    template_name = 'applications/status_form.html'
+    success_url = reverse_lazy('applications:status_list')
+
+class StatusUpdateView(AdminRequiredMixin, UpdateView):
+    model = Status
+    fields = ['name', 'color', 'is_final', 'order']
+    template_name = 'applications/status_form.html'
+    success_url = reverse_lazy('applications:status_list')
+
+# Управление категориями
+class CategoryListView(AdminRequiredMixin, ListView):
+    model = Category
+    template_name = 'applications/category_list.html'
+    context_object_name = 'categories'
+
+class CategoryCreateView(AdminRequiredMixin, CreateView):
+    model = Category
+    fields = ['name', 'color']
+    template_name = 'applications/category_form.html'
+    success_url = reverse_lazy('applications:category_list')
+
+class CategoryUpdateView(AdminRequiredMixin, UpdateView):
+    model = Category
+    fields = ['name', 'color']
+    template_name = 'applications/category_form.html'
+    success_url = reverse_lazy('applications:category_list')
+
+
+class ExportApplicationsView(AdminRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        # Создаем Excel файл
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Заявки"
+
+        # Заголовки
+        headers = ['ID', 'Клиент', 'Телефон', 'Email', 'Статус', 'Оператор', 'Создана', 'Обновлена', 'Примечания']
+        for col, header in enumerate(headers, 1):
+            ws.cell(row=1, column=col, value=header)
+
+        # Данные
+        applications = Application.objects.select_related('client', 'operator', 'status').all()
+        for row, app in enumerate(applications, 2):
+            ws.cell(row=row, column=1, value=app.pk)
+            ws.cell(row=row, column=2, value=app.client.name or 'Без имени')
+            ws.cell(row=row, column=3, value=app.client.phone or '')
+            ws.cell(row=row, column=4, value=app.client.email or '')
+            ws.cell(row=row, column=5, value=app.status.name)
+            ws.cell(row=row, column=6, value=app.operator.get_full_name() if app.operator else 'Не назначен')
+            ws.cell(row=row, column=7, value=app.created_at.strftime('%d.%m.%Y %H:%M'))
+            ws.cell(row=row, column=8, value=app.updated_at.strftime('%d.%m.%Y %H:%M'))
+            ws.cell(row=row, column=9, value=app.notes)
+
+        # Отправляем файл
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response[
+            'Content-Disposition'] = f'attachment; filename=applications_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        wb.save(response)
+        return response
+
+
+class ExportClientsView(AdminRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Клиенты"
+
+        headers = ['ID', 'ФИО', 'Телефон', 'Email', 'Адрес', 'Источник', 'Создан', 'Примечания']
+        for col, header in enumerate(headers, 1):
+            ws.cell(row=1, column=col, value=header)
+
+        clients = Client.objects.all()
+        for row, client in enumerate(clients, 2):
+            ws.cell(row=row, column=1, value=client.pk)
+            ws.cell(row=row, column=2, value=client.name or '')
+            ws.cell(row=row, column=3, value=client.phone or '')
+            ws.cell(row=row, column=4, value=client.email or '')
+            ws.cell(row=row, column=5, value=client.address or '')
+            ws.cell(row=row, column=6, value=client.source or '')
+            ws.cell(row=row, column=7, value=client.created_at.strftime('%d.%m.%Y %H:%M'))
+            ws.cell(row=row, column=8, value=client.notes or '')
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response[
+            'Content-Disposition'] = f'attachment; filename=clients_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        wb.save(response)
+        return response

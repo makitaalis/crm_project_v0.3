@@ -13,15 +13,73 @@
                 <form method="post">
                     {% csrf_token %}
                     {{ form|crispy }}
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg"></i> Сохранить
-                    </button>
-                    <a href="{% url 'clients:list' %}" class="btn btn-secondary">
-                        <i class="bi bi-x-lg"></i> Отмена
-                    </a>
+
+                    {% if not object %}
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="create_application"
+                               id="create_application" checked>
+                        <label class="form-check-label" for="create_application">
+                            <i class="bi bi-file-text"></i> Создать заявку для этого клиента
+                        </label>
+                    </div>
+                    {% endif %}
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Сохранить
+                        </button>
+                        <a href="{% url 'clients:list' %}" class="btn btn-secondary">
+                            <i class="bi bi-x-lg"></i> Отмена
+                        </a>
+                    </div>
                 </form>
             </div>
         </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Подсказки</h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>Все поля необязательные</li>
+                    <li>Телефон вводите без кода страны (например: 9991234567)</li>
+                    <li>При добавлении проверяется дубликат по номеру телефона</li>
+                    {% if not object %}
+                    <li>При создании клиента автоматически создается новая заявка</li>
+                    {% endif %}
+                    <li>Для звонка по номеру используется протокол SIP</li>
+                </ul>
+            </div>
+        </div>
+
+        {% if object and object.applications.exists %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-file-text"></i> Заявки клиента</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    {% for app in object.applications.all|slice:":5" %}
+                    <li class="mb-2">
+                        <a href="{% url 'applications:detail' app.pk %}" class="text-decoration-none">
+                            #{{ app.pk }} -
+                            <span class="badge badge-{{ app.status.code }}">{{ app.status.name }}</span>
+                            <small class="text-muted">{{ app.created_at|date:"d.m.Y" }}</small>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% if object.applications.count > 5 %}
+                <p class="mb-0 mt-2">
+                    <small class="text-muted">И еще {{ object.applications.count|add:"-5" }} заявок...</small>
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

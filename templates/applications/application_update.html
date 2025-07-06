@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Редактировать заявку{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Редактировать заявку #{{ object.pk }}</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Информация о клиенте</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-3">ФИО:</dt>
+                    <dd class="col-sm-9">{{ object.client.name|default:"Без имени" }}</dd>
+
+                    <dt class="col-sm-3">Телефон:</dt>
+                    <dd class="col-sm-9">
+                        {% if object.client.phone %}
+                            <a href="sip:{{ object.client.phone }}" class="text-decoration-none">
+                                <i class="bi bi-telephone"></i> {{ object.client.phone }}
+                            </a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-3">Email:</dt>
+                    <dd class="col-sm-9">{{ object.client.email|default:"-" }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form|crispy }}
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> Сохранить
+                    </button>
+                    {% if user.is_admin %}
+                        <a href="{% url 'applications:detail' object.pk %}" class="btn btn-secondary">
+                            <i class="bi bi-x-lg"></i> Отмена
+                        </a>
+                    {% else %}
+                        <a href="{% url 'applications:list' %}" class="btn btn-secondary">
+                            <i class="bi bi-x-lg"></i> Отмена
+                        </a>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
