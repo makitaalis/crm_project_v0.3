@@ -1,3 +1,5 @@
+from .models import Application, ApplicationHistory, ApplicationComment, Status
+from apps.accounts.models import User
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, DetailView, UpdateView
 from django.urls import reverse_lazy

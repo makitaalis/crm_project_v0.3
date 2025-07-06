@@ -1,3 +1,5 @@
+from .models import Client, ClientHistory
+from django.db import models
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
