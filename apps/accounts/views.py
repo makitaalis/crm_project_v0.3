@@ -86,25 +86,8 @@ class UserListView(AdminRequiredMixin, ListView):
     context_object_name = 'users'
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        user = self.request.user
-
-        if user.is_operator():
-            queryset = queryset.filter(operator=user)
-
-        # Filters
-        status = self.request.GET.get('status')
-        if status:
-            queryset = queryset.filter(status__code=status)
-
-        operator = self.request.GET.get('operator')
-        if operator and user.is_admin():
-            if operator == 'none':
-                queryset = queryset.filter(operator__isnull=True)
-            else:
-                queryset = queryset.filter(operator_id=operator)
-
-        return queryset.select_related('client', 'operator', 'status')
+        # Исправлено: правильный код для UserListView
+        return User.objects.exclude(id=self.request.user.id).order_by('-last_activity')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

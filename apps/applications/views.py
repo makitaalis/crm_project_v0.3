@@ -36,9 +36,12 @@ class ApplicationListView(LoginRequiredMixin, ListView):
 
         operator = self.request.GET.get('operator')
         if operator and user.is_admin():
-            queryset = queryset.filter(operator_id=operator)
+            if operator == 'none':
+                queryset = queryset.filter(operator__isnull=True)
+            else:
+                queryset = queryset.filter(operator_id=operator)
 
-        return queryset
+        return queryset.select_related('client', 'operator', 'status')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -364,3 +367,177 @@ class OperatorWorkspaceView(LoginRequiredMixin, TemplateView):
         context['statuses'] = Status.objects.all()
 
         return context
+
+
+# Добавьте эти классы в файл apps/applications/views.py после существующих классов
+
+class ApplicationQuickAssignView(AdminRequiredMixin, View):
+    """Быстрое назначение заявки оператору из списка"""
+
+    def post(self, request, pk):
+        application = get_object_or_404(Application, pk=pk)
+        operator_id = request.POST.get('operator')
+
+        if not operator_id:
+            messages.error(request, 'Выберите оператора')
+            return redirect('applications:list')
+
+        try:
+            operator = User.objects.get(pk=operator_id, role='operator', is_blocked=False)
+            old_operator = application.operator
+
+            # Назначаем оператора
+            application.operator = operator
+            application.save()
+
+            # Логирование
+            action = f'Назначен оператор: {operator.get_full_name()}'
+            if old_operator:
+                action = f'Переназначено с {old_operator.get_full_name()} на {operator.get_full_name()}'
+
+            ApplicationHistory.objects.create(
+                application=application,
+                user=request.user,
+                action=action
+            )
+
+            # Создаем уведомление для оператора
+            ApplicationComment.objects.create(
+                application=application,
+                user=request.user,
+                text=f'Заявка назначена вам администратором {request.user.get_full_name()}'
+            )
+
+            messages.success(request, f'Заявка #{application.pk} назначена оператору {operator.get_full_name()}')
+
+        except User.DoesNotExist:
+            messages.error(request, 'Оператор не найден')
+
+        # Возвращаемся на страницу, с которой пришли
+        next_url = request.POST.get('next', 'applications:list')
+        return redirect(next_url)
+
+
+class UnassignedApplicationsView(AdminRequiredMixin, ListView):
+    """Отдельная страница для неназначенных заявок"""
+    model = Application
+    template_name = 'applications/unassigned_list.html'
+    context_object_name = 'applications'
+    paginate_by = 20
+
+    def get_queryset(self):
+        return Application.objects.filter(
+            operator__isnull=True
+        ).select_related('client', 'status').order_by('-created_at')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Получаем операторов с их текущей загрузкой
+        operators = User.objects.filter(role='operator', is_blocked=False)
+
+        for operator in operators:
+            # Считаем активные заявки
+            operator.active_count = Application.objects.filter(
+                operator=operator,
+                status__is_final=False
+            ).count()
+            # Определяем загруженность
+            operator.workload = 'low' if operator.active_count < 5 else 'medium' if operator.active_count < 10 else 'high'
+
+        context['operators'] = operators
+        context['total_unassigned'] = self.get_queryset().count()
+        return context
+
+
+class OperatorStatsView(AdminRequiredMixin, TemplateView):
+    """Страница со статистикой операторов для админа"""
+    template_name = 'applications/operator_stats.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        operators = User.objects.filter(role='operator')
+
+        operator_stats = []
+        for operator in operators:
+            stats = {
+                'operator': operator,
+                'total': operator.applications.count(),
+                'active': operator.applications.exclude(status__is_final=True).count(),
+                'today': operator.applications.filter(updated_at__date=timezone.now().date()).count(),
+                'success': operator.applications.filter(status__code='success').count(),
+                'fail': operator.applications.filter(status__code='fail').count(),
+            }
+            # Процент успешных
+            if stats['success'] + stats['fail'] > 0:
+                stats['success_rate'] = round(stats['success'] / (stats['success'] + stats['fail']) * 100, 1)
+            else:
+                stats['success_rate'] = 0
+
+            # Статус онлайн
+            stats['is_online'] = operator.last_activity >= timezone.now() - timedelta(minutes=5)
+
+            operator_stats.append(stats)
+
+        # Сортируем по активным заявкам
+        operator_stats.sort(key=lambda x: x['active'])
+
+        context['operator_stats'] = operator_stats
+        context['total_operators'] = len(operators)
+        context['online_operators'] = sum(1 for s in operator_stats if s['is_online'])
+
+        return context
+
+
+class ApplicationTransferView(AdminRequiredMixin, UpdateView):
+    """Передача заявки другому оператору с комментарием"""
+    model = Application
+    template_name = 'applications/application_transfer.html'
+    fields = []
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['operators'] = User.objects.filter(
+            role='operator',
+            is_blocked=False
+        ).exclude(pk=self.object.operator_id if self.object.operator else None)
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        new_operator_id = request.POST.get('new_operator')
+        reason = request.POST.get('reason', '')
+
+        if not new_operator_id:
+            messages.error(request, 'Выберите оператора')
+            return self.form_invalid(None)
+
+        try:
+            new_operator = User.objects.get(pk=new_operator_id, role='operator')
+            old_operator = self.object.operator
+
+            # Обновляем заявку
+            self.object.operator = new_operator
+            self.object.save()
+
+            # Логирование
+            action = f'Передана от {old_operator.get_full_name() if old_operator else "Не назначен"} к {new_operator.get_full_name()}'
+            ApplicationHistory.objects.create(
+                application=self.object,
+                user=request.user,
+                action=action,
+                comment=reason
+            )
+
+            # Комментарий для нового оператора
+            ApplicationComment.objects.create(
+                application=self.object,
+                user=request.user,
+                text=f'Заявка передана вам. Причина: {reason}' if reason else 'Заявка передана вам.'
+            )
+
+            messages.success(request, f'Заявка передана оператору {new_operator.get_full_name()}')
+            return redirect('applications:detail', pk=self.object.pk)
+
+        except User.DoesNotExist:
+            messages.error(request, 'Оператор не найден')
+            return self.form_invalid(None)
