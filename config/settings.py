@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'django_extensions',
 
     # Local apps
+    'apps.core',  # Добавили core приложение
     'apps.accounts',
     'apps.clients',
     'apps.applications',
@@ -54,6 +55,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.core.context_processors.notifications',  # Добавили контекстный процессор
             ],
         },
     },
@@ -140,10 +142,22 @@ LOGGING = {
             'filename': BASE_DIR / 'logs' / 'errors.log',
             'formatter': 'verbose',
         },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
     },
     'root': {
-        'handlers': ['file'],
-        'level': 'ERROR',
+        'handlers': ['file', 'console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
 

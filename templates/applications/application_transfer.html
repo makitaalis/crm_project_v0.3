@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block title %}Передать заявку{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Передать заявку #{{ object.pk }}</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Информация о заявке</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-4">Клиент:</dt>
+                    <dd class="col-sm-8">{{ object.client.name|default:object.client.phone|default:"Без имени" }}</dd>
+
+                    <dt class="col-sm-4">Телефон:</dt>
+                    <dd class="col-sm-8">
+                        {% if object.client.phone %}
+                            <a href="sip:{{ object.client.phone }}">{{ object.client.phone }}</a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-4">Текущий оператор:</dt>
+                    <dd class="col-sm-8">
+                        {% if object.operator %}
+                            {{ object.operator.get_full_name|default:object.operator.username }}
+                        {% else %}
+                            <span class="text-muted">Не назначен</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-4">Статус:</dt>
+                    <dd class="col-sm-8">
+                        <span class="badge badge-{{ object.status.code }}">{{ object.status.name }}</span>
+                    </dd>
+
+                    <dt class="col-sm-4">Создана:</dt>
+                    <dd class="col-sm-8">{{ object.created_at|date:"d.m.Y H:i" }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Передача заявки</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Новый оператор *</label>
+                        <select name="new_operator" class="form-select" required>
+                            <option value="">-- Выберите оператора --</option>
+                            {% for operator in operators %}
+                                <option value="{{ operator.pk }}">
+                                    {{ operator.get_full_name|default:operator.username }}
+                                    ({{ operator.applications.count }} заявок)
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Причина передачи</label>
+                        <textarea name="reason" class="form-control" rows="3"
+                                  placeholder="Укажите причину передачи заявки (необязательно)"></textarea>
+                        <div class="form-text">
+                            Эта информация будет видна новому оператору
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-arrow-right"></i> Передать заявку
+                    </button>
+                    <a href="{% url 'applications:detail' object.pk %}" class="btn btn-secondary">
+                        <i class="bi bi-x-lg"></i> Отмена
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Доступные операторы</h5>
+            </div>
+            <div class="card-body">
+                {% for operator in operators %}
+                <div class="border rounded p-3 mb-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">{{ operator.get_full_name|default:operator.username }}</h6>
+                            <small class="text-muted">{{ operator.email }}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-secondary">{{ operator.applications.count }} заявок</span>
+                            {% if operator.last_activity %}
+                            <br><small class="text-muted">
+                                Активность: {{ operator.last_activity|timesince }} назад
+                            </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted">Нет доступных операторов для передачи</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
