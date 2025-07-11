@@ -8,7 +8,6 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = ['*']
 
-# Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -23,7 +22,7 @@ INSTALLED_APPS = [
     'django_extensions',
 
     # Local apps
-    'apps.core',  # Добавили core приложение
+    'apps.core',  # ← Убедитесь что это есть
     'apps.accounts',
     'apps.clients',
     'apps.applications',

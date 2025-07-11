@@ -1,3 +1,4 @@
+# apps/applications/views.py (ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ)
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, DetailView, UpdateView, CreateView, View, TemplateView
 from django.urls import reverse_lazy
@@ -10,13 +11,11 @@ from datetime import datetime, timedelta
 from openpyxl import Workbook
 from .models import Application, ApplicationHistory, ApplicationComment, Status, Category
 from .forms import ApplicationForm, ApplicationOperatorForm
-from apps.accounts.mixins import AdminRequiredMixin
+from apps.accounts.mixins import AdminRequiredMixin, AdminOrOperatorMixin
 from apps.accounts.models import User
 from apps.clients.models import Client
-from django.shortcuts import get_object_or_404
-from datetime import timedelta
 
-class ApplicationListView(LoginRequiredMixin, ListView):
+class ApplicationListView(AdminOrOperatorMixin, ListView):
     model = Application
     template_name = 'applications/application_list.html'
     context_object_name = 'applications'
@@ -51,7 +50,7 @@ class ApplicationListView(LoginRequiredMixin, ListView):
         return context
 
 
-class ApplicationDetailView(LoginRequiredMixin, DetailView):
+class ApplicationDetailView(AdminOrOperatorMixin, DetailView):
     model = Application
     template_name = 'applications/application_detail.html'
 
@@ -85,7 +84,7 @@ class ApplicationAssignView(AdminRequiredMixin, UpdateView):
         return reverse_lazy('applications:detail', kwargs={'pk': self.object.pk})
 
 
-class ApplicationUpdateView(LoginRequiredMixin, UpdateView):
+class ApplicationUpdateView(AdminOrOperatorMixin, UpdateView):
     model = Application
     template_name = 'applications/application_update.html'
 
@@ -227,8 +226,6 @@ class ExportApplicationsView(AdminRequiredMixin, View):
         return response
 
 
-# Добавьте эти классы в конец файла apps/applications/views.py
-
 class ApplicationMassAssignView(AdminRequiredMixin, View):
     """Массовое назначение заявок оператору"""
 
@@ -270,7 +267,7 @@ class ApplicationMassAssignView(AdminRequiredMixin, View):
         return redirect('applications:list')
 
 
-class ApplicationQuickStatusView(LoginRequiredMixin, View):
+class ApplicationQuickStatusView(AdminOrOperatorMixin, View):
     """Быстрая смена статуса заявки (для оператора)"""
 
     def post(self, request, pk):
@@ -328,7 +325,7 @@ class OperatorWorkspaceView(LoginRequiredMixin, TemplateView):
     template_name = 'applications/operator_workspace.html'
 
     def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_operator():
+        if not request.user.is_operator() or request.user.is_blocked:
             messages.error(request, 'Доступ только для операторов')
             return redirect('dashboard')
         return super().dispatch(request, *args, **kwargs)
@@ -368,8 +365,6 @@ class OperatorWorkspaceView(LoginRequiredMixin, TemplateView):
 
         return context
 
-
-# Добавьте эти классы в файл apps/applications/views.py после существующих классов
 
 class ApplicationQuickAssignView(AdminRequiredMixin, View):
     """Быстрое назначение заявки оператору из списка"""
